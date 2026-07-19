@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>webserv — HTTP/1.1 Demo</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <script>
+    (async function() {
+        try {
+            const res = await fetch('/cgi-bin/check_session.py');
+            if (res.ok) window.location.replace('/dashboard/index.html');
+        } catch (e) {}
+    })();
+    </script>
+    <div class="container">
+        <h1>webserv — HTTP/1.1 Demo</h1>
+        <p class="subtitle">C++98 HTTP server · subject requirement showcase</p>
+
+        <div class="box">
+            <h3>Authentication (CGI + Cookies)</h3>
+            <div class="buttons">
+                <a href="/signup.html" class="btn signup">Sign Up</a>
+                <a href="/login.html" class="btn login">Log In</a>
+            </div>
+            <div class="info-box">
+                <p><strong>Flow:</strong> Sign Up (POST → hash password → save to JSON) → Log In (POST → set cookie) → Dashboard (CGI reads cookie)</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
