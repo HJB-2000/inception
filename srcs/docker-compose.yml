@@ -1,43 +1,76 @@
 services:
-  nginx:
-    build: ./requirements/nginx
-    ports:
-      - "443:443"
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-k", "https://localhost"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-    networks:
-      - inception
-
   mariadb:
     build: ./requirements/mariadb
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "mariadb-admin", "--socket=/run/mysqld/mysqld.sock", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    image: mariadb
+    container_name: mariadb
+    env_file: .env
+    secrets:
+      - db_password
+      - db_root_password
     volumes:
       - mariadb_data:/var/lib/mysql
     networks:
       - inception
+    restart: on-failure
+
+  wordpress:
+    build: ./requirements/wordpress
+    image: wordpress
+    container_name: wordpress
+    env_file: .env
+    secrets: [db_password, credentials]
+    volumes: [wordpress_data:/var/www/html]
+    depends_on: [mariadb]
+    networks: [inception]
+    restart: on-failure
+
+
+  nginx:
+    build: ./requirements/nginx
+    image: nginx
+    container_name: nginx
+    env_file: .env
+    environment:
+      - MY_DOMAIN=${DOMAIN_NAME}
+    volumes:
+      - wordpress_data:/var/www/html
+    ports:
+      - "443:443"
+    depends_on:
+      - wordpress
+    networks:
+      - inception
+    restart: on-failure
 
 volumes:
+  wordpress_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/jbahmida/data/wordpress
+      o: bind
   mariadb_data:
     driver: local
     driver_opts:
       type: none
-      o: bind
       device: /home/jbahmida/data/mariadb
+      o: bind
 
 networks:
   inception:
     driver: bridge
+
+  mariadb_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/jbahmida/data/mariadb
+      o: bind
+
+secrets:
+  db_password:
+    file: ../secrets/db_password.txt
+  db_root_password:
+    file: ../secrets/db_root_password.txt
+  credentials:
+    file: ../secrets/credentials.txt

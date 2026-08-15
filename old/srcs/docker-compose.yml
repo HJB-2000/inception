@@ -1,0 +1,43 @@
+services:
+  nginx:
+    build: ./requirements/nginx
+    ports:
+      - "443:443"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-k", "https://localhost"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - inception
+
+  mariadb:
+    build: ./requirements/mariadb
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "--socket=/run/mysqld/mysqld.sock", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - inception
+
+volumes:
+  mariadb_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/jbahmida/data/mariadb
+
+networks:
+  inception:
+    driver: bridge

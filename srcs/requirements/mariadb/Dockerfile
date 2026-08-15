@@ -1,19 +1,21 @@
-# syntax=docker/dockerfile:1
-# escape=`
-# check=skip=JSONArgsRecommended,error=true
+FROM debian:bookworm-slim
 
-ARG     penultimate_version=debian:bookworm
-FROM    ${penultimate_version}
-RUN     apt-get update -y
-RUN     apt-get install -y mariadb-server
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    mariadb-server \
+    mariadb-client \
+    tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /var/lib/mysql/*
 
-EXPOSE  3306
-LABEL   verion="1.0"
-LABEL   description="Mariadb server"
+COPY conf/mariadb.conf /etc/mysql/mariadb.conf.d/50-server.cnf
+COPY tools/entrypoint.sh /usr/local/bin/entrypoint.sh
 
+RUN chmod +x /usr/local/bin/entrypoint.sh && \
+    sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && \
+    mkdir -p /var/lib/mysql /var/run/mysqld && \
+    chown -R mysql:mysql /var/lib/mysql /var/run/mysqld
 
-COPY tools/init.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]
+EXPOSE 3306
 
-
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/usr/local/bin/entrypoint.sh"]
