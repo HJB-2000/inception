@@ -20,7 +20,7 @@ services:
     env_file: .env
     secrets: [db_password, credentials]
     volumes: [wordpress_data:/var/www/html]
-    depends_on: [mariadb]
+    depends_on: [mariadb, redis]
     networks: [inception]
     restart: on-failure
 
@@ -42,6 +42,80 @@ services:
       - inception
     restart: on-failure
 
+  prometheus:
+    build: ./requirements/bonus/prometheus
+    image: prometheus
+    container_name: prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    networks:
+      - inception
+    depends_on:
+      - cadvisor
+
+  cadvisor:
+    build: ./requirements/bonus/cadvisor
+    image: cadvisor
+    container_name: cadvisor
+    ports:
+      - 8080:8080
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    networks:
+      - inception
+
+  uptime-kuma:
+    build: ./requirements/bonus/uptime_kuma
+    image: uptime-kuma
+    container_name: uptime-kuma
+    restart: always
+    ports:
+      - "3001:3001"
+    volumes:
+      - uptime-kuma_data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=UTC+1
+      - UMASK=0022
+    networks:
+      - inception
+    depends_on:
+      - nginx
+      - wordpress
+      - mariadb
+    
+  redis:
+    build: ./requirements/bonus/redis
+    container_name: redis
+    networks:
+      - inception
+    restart: unless-stopped
+
+  grafana:
+    build: ./requirements/bonus/grafana
+    container_name: grafana
+    networks:
+      - inception
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    secrets:
+      - grafana_admin_user
+      - grafana_admin_password
+    restart: unless-stopped
+    depends_on:
+      - cadvisor
+      - prometheus
+
 volumes:
   wordpress_data:
     driver: local
@@ -55,17 +129,22 @@ volumes:
       type: none
       device: /home/jbahmida/data/mariadb
       o: bind
+  uptime-kuma_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/jbahmida/data/uptime_kuma
+      o: bind
+  grafana_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/jbahmida/data/grafana
+      o: bind
 
 networks:
   inception:
     driver: bridge
-
-  mariadb_data:
-    driver: local
-    driver_opts:
-      type: none
-      device: /home/jbahmida/data/mariadb
-      o: bind
 
 secrets:
   db_password:
@@ -74,3 +153,7 @@ secrets:
     file: ../secrets/db_root_password.txt
   credentials:
     file: ../secrets/credentials.txt
+  grafana_admin_user:
+    file: ../secrets/grafana_admin_user.txt
+  grafana_admin_password:
+    file: ../secrets/grafana_admin_password.txt

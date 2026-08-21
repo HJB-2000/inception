@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     wget \
     mariadb-client \
+    php8.2-redis \
     tini \
     && rm -rf /var/lib/apt/lists/*
 
