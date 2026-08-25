@@ -116,6 +116,45 @@ services:
       - cadvisor
       - prometheus
 
+  ftp:
+    build:
+      context: ./requirements/bonus/ftp
+    container_name: ftp
+    restart: on-failure
+    environment:
+      FTP_USER: ${FTP_USER}
+    secrets:
+      - ftp_password
+    volumes:
+      - wordpress_data:/var/www/html
+    ports:
+      - "21:21"
+      - "21100-21110:21100-21110"
+    networks:
+      - inception
+    depends_on:
+      - wordpress
+      
+  static-site:
+    build: ./requirements/bonus/static-site
+    container_name: static-site
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    networks:
+      - inception
+
+  adminer:
+    build: ./requirements/bonus/adminer
+    container_name: adminer
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    networks:
+      - inception
+    depends_on:
+      - mariadb
+
 volumes:
   wordpress_data:
     driver: local
@@ -157,3 +196,5 @@ secrets:
     file: ../secrets/grafana_admin_user.txt
   grafana_admin_password:
     file: ../secrets/grafana_admin_password.txt
+  ftp_password:
+    file: ../secrets/ftp_password.txt
