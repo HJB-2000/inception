@@ -12,7 +12,8 @@ COPY tools/nginx_int.sh /nginx_int.sh
 
 RUN chmod +x /nginx_int.sh && \
     sed -i 's/\r$//' /nginx_int.sh
-
+    
+RUN rm -rf /etc/nginx/conf.d/default.conf /etc/nginx/sites-enabled/default
 EXPOSE 443
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/nginx_int.sh"]

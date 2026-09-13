@@ -1,7 +1,7 @@
 services:
   mariadb:
     build: ./requirements/mariadb
-    image: mariadb
+    image: mariadb:jbahmida
     container_name: mariadb
     env_file: .env
     secrets:
@@ -11,23 +11,39 @@ services:
       - mariadb_data:/var/lib/mysql
     networks:
       - inception
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$(cat /run/secrets/db_root_password) --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
     restart: on-failure
 
   wordpress:
     build: ./requirements/wordpress
-    image: wordpress
+    image: wordpress:jbahmida
     container_name: wordpress
     env_file: .env
     secrets: [db_password, credentials]
     volumes: [wordpress_data:/var/www/html]
-    depends_on: [mariadb, redis]
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm8.2 -t && nc -z localhost 9000"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
     networks: [inception]
     restart: on-failure
 
 
   nginx:
     build: ./requirements/nginx
-    image: nginx
+    image: nginx:jbahmida
     container_name: nginx
     env_file: .env
     environment:
@@ -37,26 +53,15 @@ services:
     ports:
       - "443:443"
     depends_on:
-      - wordpress
+      wordpress:
+        condition: service_healthy
     networks:
       - inception
     restart: on-failure
 
-  prometheus:
-    build: ./requirements/bonus/prometheus
-    image: prometheus
-    container_name: prometheus
-    restart: always
-    ports:
-      - "9090:9090"
-    networks:
-      - inception
-    depends_on:
-      - cadvisor
-
   cadvisor:
     build: ./requirements/bonus/cadvisor
-    image: cadvisor
+    image: cadvisor:jbahmida
     container_name: cadvisor
     ports:
       - 8080:8080
@@ -74,7 +79,7 @@ services:
 
   uptime-kuma:
     build: ./requirements/bonus/uptime_kuma
-    image: uptime-kuma
+    image: uptime-kuma:jbahmida
     container_name: uptime-kuma
     restart: always
     ports:
@@ -94,31 +99,22 @@ services:
     
   redis:
     build: ./requirements/bonus/redis
+    image: redis:jbahmida
     container_name: redis
     networks:
       - inception
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
     restart: unless-stopped
-
-  grafana:
-    build: ./requirements/bonus/grafana
-    container_name: grafana
-    networks:
-      - inception
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-    secrets:
-      - grafana_admin_user
-      - grafana_admin_password
-    restart: unless-stopped
-    depends_on:
-      - cadvisor
-      - prometheus
 
   ftp:
     build:
       context: ./requirements/bonus/ftp
+    image: ftp:jbahmida
     container_name: ftp
     restart: on-failure
     environment:
@@ -137,6 +133,7 @@ services:
       
   static-site:
     build: ./requirements/bonus/static-site
+    image: static-site:jbahmida
     container_name: static-site
     restart: unless-stopped
     ports:
@@ -146,6 +143,7 @@ services:
 
   adminer:
     build: ./requirements/bonus/adminer
+    image: adminer:jbahmida
     container_name: adminer
     restart: unless-stopped
     ports:
@@ -174,13 +172,6 @@ volumes:
       type: none
       device: /home/jbahmida/data/uptime_kuma
       o: bind
-  grafana_data:
-    driver: local
-    driver_opts:
-      type: none
-      device: /home/jbahmida/data/grafana
-      o: bind
-
 networks:
   inception:
     driver: bridge
@@ -192,9 +183,5 @@ secrets:
     file: ../secrets/db_root_password.txt
   credentials:
     file: ../secrets/credentials.txt
-  grafana_admin_user:
-    file: ../secrets/grafana_admin_user.txt
-  grafana_admin_password:
-    file: ../secrets/grafana_admin_password.txt
   ftp_password:
     file: ../secrets/ftp_password.txt

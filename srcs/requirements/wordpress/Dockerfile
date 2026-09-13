@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     mariadb-client \
     php8.2-redis \
+    redis-tools \
+    netcat-openbsd \
     tini \
     && rm -rf /var/lib/apt/lists/*
 
@@ -28,7 +30,6 @@ RUN chmod +x /usr/local/bin/entrypoint.sh && \
     chown -R www-data:www-data /var/www/html
 
 WORKDIR /var/www/html
-
 EXPOSE 9000
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
